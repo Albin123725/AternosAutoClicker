@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Aternos 24/7 Server Keeper - Main Entry Point
-Deploy this on Render to keep your Aternos server running 24/7!
-"""
-
 import os
 import sys
 import time
@@ -18,7 +13,6 @@ def main():
     print("=" * 60)
     print("🔥 Keeps your Aternos server running 24/7")
     print("🎯 Strategy: Clicks +1 button at 0:59 to reset shutdown timer")
-    print("🛡️ Features: Stealth mode to avoid bot detection")
     print("=" * 60)
     
     from src.aternos_keeper import Aternos24_7Keeper
@@ -26,9 +20,9 @@ def main():
     # Create keeper instance
     keeper = Aternos24_7Keeper()
     
-    # Run forever (with restart on failure)
+    # Run forever
     restart_count = 0
-    max_restarts = 10
+    max_restarts = 5
     
     while restart_count < max_restarts:
         restart_count += 1
@@ -41,11 +35,14 @@ def main():
         
         if success:
             print(f"✅ Keeper completed successfully")
+            break
         else:
             print(f"❌ Keeper failed, will restart in 30 seconds...")
             time.sleep(30)
     
-    print(f"\n❌ Maximum restarts reached ({max_restarts}), stopping...")
+    if restart_count >= max_restarts:
+        print(f"\n❌ Maximum restarts reached ({max_restarts}), stopping...")
+    
     print("=" * 60)
 
 if __name__ == "__main__":
