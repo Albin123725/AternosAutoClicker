@@ -7,12 +7,15 @@ __pycache__/
 env/
 venv/
 .env
-.env.local
-.env.prod
-*.env
 *.log
+
+# Selenium
 chromedriver
 geckodriver
+
+# Screenshots
+screenshots/
+*.png
 
 # IDE
 .vscode/
@@ -23,13 +26,3 @@ geckodriver
 # OS
 .DS_Store
 Thumbs.db
-
-# Secrets
-secrets.json
-credentials.json
-config.json
-
-# Logs
-logs/
-*.log
-error_screenshots/
