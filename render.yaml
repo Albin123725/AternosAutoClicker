@@ -5,17 +5,11 @@ services:
     plan: free
     region: oregon
     branch: main
-    # ⬇️ UPDATED BUILD COMMAND WITH CHROME INSTALLATION ⬇️
     buildCommand: |
       apt-get update
-      apt-get install -y wget gnupg
-      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
-      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
-      apt-get update
-      apt-get install -y google-chrome-stable
+      apt-get install -y chromium-browser chromium-chromedriver
       pip install -r requirements.txt
-    # ⬇️ START COMMAND ⬇️
-    startCommand: python run.py
+    startCommand: python app.py
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
@@ -26,6 +20,8 @@ services:
         value: "Albin4242"
       - key: ATERNOS_SERVER
         value: "gameplannet.aternos.me:43658"
-      - key: STEALTH_MODE
-        value: "false"  # Disable stealth for now to simplify
+      - key: AUTO_START
+        value: "true"
+      - key: PORT
+        value: "10000"
     healthCheckPath: /health
