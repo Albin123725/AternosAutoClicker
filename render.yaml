@@ -1,12 +1,9 @@
 services:
   - type: web
-    name: aternos-auto-booster
+    name: aternos-booster
     env: python
     plan: free
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      python scripts/setup_env.py
+    buildCommand: pip install -r requirements.txt
     startCommand: python run.py
     envVars:
       - key: ATERNOS_USERNAME
@@ -17,6 +14,3 @@ services:
         value: "gameplannet.aternos.me"
       - key: BOOST_INTERVAL
         value: "60"
-      - key: MAX_ATTEMPTS_PER_SESSION
-        value: "240"
-    healthCheckPath: /health
