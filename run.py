@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Web interface for Render deployment
+Web interface for Render deployment - FIXED VERSION
 """
 
 import os
@@ -25,7 +25,9 @@ stats = {
     "session_boosts": 0,
     "last_boost": None,
     "status": "stopped",
-    "next_check": None
+    "next_check": None,
+    "username": None,
+    "server": None
 }
 
 HTML_TEMPLATE = """
@@ -143,12 +145,16 @@ HTML_TEMPLATE = """
                 </span>
             </div>
             <div class="stat-row">
+                <span class="stat-label">Username:</span>
+                <span class="stat-value">{{ stats.username or 'Not set' }}</span>
+            </div>
+            <div class="stat-row">
                 <span class="stat-label">Server:</span>
-                <span class="stat-value">{{ server_name }}</span>
+                <span class="stat-value">{{ stats.server or 'Not set' }}</span>
             </div>
             <div class="stat-row">
                 <span class="stat-label">Uptime:</span>
-                <span class="stat-value">{{ stats.start_time }}</span>
+                <span class="stat-value">{{ stats.start_time or 'Not started' }}</span>
             </div>
         </div>
         
@@ -192,65 +198,81 @@ HTML_TEMPLATE = """
         setTimeout(() => {
             window.location.reload();
         }, 30000);
-        
-        // Update next check time
-        function updateNextCheck() {
-            const now = new Date();
-            const next = new Date(now.getTime() + 60000); // +1 minute
-            document.querySelector('.next-check').textContent = 
-                next.toLocaleTimeString();
-        }
-        
-        // Initial update
-        updateNextCheck();
-        setInterval(updateNextCheck, 1000);
     </script>
 </body>
 </html>
 """
 
 def start_booster():
-    """Start the booster in background"""
+    """Start the booster in background - FIXED"""
     global booster_instance, is_running, stats
     
     if is_running:
-        return
+        return False
     
-    from src.aternos_client import AternosBooster
-    
-    is_running = True
-    stats["status"] = "running"
-    stats["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    def run():
-        try:
-            booster = AternosBooster()
-            booster.run()
-        except Exception as e:
-            print(f"Booster error: {e}")
-        finally:
-            is_running = False
-            stats["status"] = "stopped"
-    
-    # Start in thread
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-    
-    return True
+    try:
+        from src.aternos_client import AternosBooster
+        
+        # Get credentials from environment
+        username = os.getenv('ATERNOS_USERNAME', '_CRAFTEEE_')
+        password = os.getenv('ATERNOS_PASSWORD', 'Albin4242')
+        server = os.getenv('ATERNOS_SERVER', 'gameplannet.aternos.me:43658')
+        
+        if not username or not password:
+            print("❌ Missing credentials in environment variables")
+            return False
+        
+        # Update stats
+        stats["username"] = username
+        stats["server"] = server
+        stats["status"] = "running"
+        stats["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        print(f"🚀 Starting booster for {username} on {server}")
+        
+        def run():
+            try:
+                # Create booster with proper arguments
+                booster = AternosBooster(
+                    username=username,
+                    password=password,
+                    server_url=server
+                )
+                
+                # Run continuous boosting
+                booster.run_continuous_boosting(
+                    interval_seconds=int(os.getenv('BOOST_INTERVAL', '60')),
+                    max_minutes=int(os.getenv('MAX_ATTEMPTS_PER_SESSION', '240'))
+                )
+                
+            except Exception as e:
+                print(f"❌ Booster error: {e}")
+            finally:
+                global is_running
+                is_running = False
+                stats["status"] = "stopped"
+        
+        # Start in thread
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        
+        is_running = True
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to start booster: {e}")
+        return False
 
 @app.route('/')
 def home():
     """Main dashboard"""
-    from src.config import Config
-    
     # Update next check time
-    if is_running:
+    if is_running and stats["status"] == "running":
         next_check = datetime.now()
         stats["next_check"] = next_check.strftime("%H:%M:%S")
     
     return render_template_string(HTML_TEMPLATE, 
                                  stats=stats,
-                                 server_name=Config.ATERNOS_SERVER,
                                  is_running=is_running)
 
 @app.route('/health')
@@ -260,21 +282,28 @@ def health():
         "status": "healthy",
         "booster": stats["status"],
         "timestamp": datetime.now().isoformat(),
-        "boosts": stats["total_boosts"]
+        "boosts": stats["total_boosts"],
+        "running": is_running
     })
 
 @app.route('/start')
 def start():
     """Start booster"""
     if start_booster():
-        return jsonify({"success": True, "message": "Booster started"})
-    return jsonify({"success": False, "message": "Already running"})
+        return jsonify({
+            "success": True, 
+            "message": "Booster started",
+            "username": stats["username"],
+            "server": stats["server"]
+        })
+    return jsonify({"success": False, "message": "Already running or failed"})
 
 @app.route('/stop')
 def stop():
     """Stop booster"""
     global is_running
     is_running = False
+    stats["status"] = "stopped"
     return jsonify({"success": True, "message": "Booster stopping"})
 
 @app.route('/boost')
@@ -286,7 +315,8 @@ def manual_boost():
     return jsonify({
         "success": True,
         "message": "Manual boost recorded",
-        "boost_count": stats["total_boosts"]
+        "boost_count": stats["total_boosts"],
+        "last_boost": stats["last_boost"]
     })
 
 @app.route('/restart')
@@ -295,25 +325,23 @@ def restart():
     global is_running
     is_running = False
     time.sleep(2)
-    start_booster()
-    return jsonify({"success": True, "message": "Booster restarted"})
+    if start_booster():
+        return jsonify({"success": True, "message": "Booster restarted"})
+    return jsonify({"success": False, "message": "Failed to restart"})
 
 @app.route('/config')
 def show_config():
     """Show configuration"""
-    from src.config import Config
-    
-    config_safe = {
-        "username": Config.ATERNOS_USERNAME,
-        "server": Config.ATERNOS_SERVER,
-        "port": Config.ATERNOS_PORT,
-        "interval": Config.BOOST_INTERVAL,
-        "headless": Config.HEADLESS,
-        "on_render": Config.IS_RENDER,
-        "max_session": Config.MAX_ATTEMPTS_PER_SESSION
+    config = {
+        "username": os.getenv('ATERNOS_USERNAME', 'Not set'),
+        "server": os.getenv('ATERNOS_SERVER', 'Not set'),
+        "port": os.getenv('PORT', '10000'),
+        "interval": os.getenv('BOOST_INTERVAL', '60'),
+        "max_session": os.getenv('MAX_ATTEMPTS_PER_SESSION', '240'),
+        "on_render": os.getenv('RENDER', 'false')
     }
     
-    return jsonify(config_safe)
+    return jsonify(config)
 
 @app.route('/logs')
 def show_logs():
@@ -326,11 +354,16 @@ def show_logs():
         return jsonify({"logs": ["No logs available"]})
 
 if __name__ == "__main__":
-    # Start booster automatically on Render
-    if os.environ.get('RENDER', '').lower() == 'true':
-        print("🚀 Starting booster automatically on Render...")
+    # Start booster automatically on Render (optional)
+    auto_start = os.environ.get('AUTO_START', 'true').lower() == 'true'
+    
+    if auto_start:
+        print("🚀 Auto-starting booster on Render...")
+        # Give Flask time to start
+        time.sleep(2)
         start_booster()
     
     # Run Flask app
     port = int(os.environ.get('PORT', 10000))
+    print(f"🌐 Flask app starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
