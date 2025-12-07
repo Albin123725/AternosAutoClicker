@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: aternos-auto-booster
+    env: python
+    plan: free
+    region: oregon  # Choose closest to you
+    branch: main
+    buildCommand: |
+      pip install -r requirements.txt
+      python scripts/setup_env.py
+      apt-get update
+      apt-get install -y wget gnupg unzip
+      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+      apt-get update
+      apt-get install -y google-chrome-stable chromium-chromedriver
+    startCommand: python run.py
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: AUTO_SETUP
+        value: "true"
+      # These will be auto-filled by setup_env.py
+      - key: ATERNOS_USERNAME
+        value: "_CRAFTEEE_"  # Will be auto-replaced
+      - key: ATERNOS_PASSWORD
+        value: "Albin4242"   # Will be auto-replaced
+      - key: ATERNOS_SERVER
+        value: "gameplannet.aternos.me"
+      - key: BOOST_INTERVAL
+        value: "60"
+      - key: MAX_ATTEMPTS_PER_SESSION
+        value: "240"  # 4 hours
+      - key: KEEP_BROWSER_OPEN
+        value: "true"
+      - key: HEADLESS
+        value: "true"
+      - key: WEB_DRIVER
+        value: "chrome"
+      - key: TELEGRAM_NOTIFICATIONS
+        value: "false"
+    healthCheckPath: /health
