@@ -1,16 +1,14 @@
 services:
   - type: web
-    name: aternos-24-7-keeper
+    name: aternos-24-7-keeper-fixed
     env: python
     plan: free
     region: oregon
-    branch: main
     buildCommand: |
       apt-get update
       apt-get install -y chromium-browser chromium-chromedriver
       pip install -r requirements.txt
     startCommand: python app.py
-    autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
