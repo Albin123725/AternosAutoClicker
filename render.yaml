@@ -2,32 +2,13 @@ services:
   - type: web
     name: aternos-auto-booster
     env: python
-    runtime: python
     plan: free
-    region: oregon
-    branch: main
     buildCommand: |
-      python -m pip install --upgrade pip
-      pip install --upgrade setuptools wheel
-      pip install selenium webdriver-manager python-dotenv Flask schedule requests
+      pip install --upgrade pip
+      pip install -r requirements.txt
       python scripts/setup_env.py
-      apt-get update
-      apt-get install -y wget gnupg unzip
-      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
-      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
-      apt-get update
-      apt-get install -y google-chrome-stable
-      CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)
-      wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip
-      unzip /tmp/chromedriver.zip -d /usr/local/bin/
-      chmod +x /usr/local/bin/chromedriver
     startCommand: python run.py
-    autoDeploy: true
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.0  # ⬅️ CHANGED FROM 3.11.0 TO 3.9.0
-      - key: AUTO_SETUP
-        value: "true"
       - key: ATERNOS_USERNAME
         value: "_CRAFTEEE_"
       - key: ATERNOS_PASSWORD
@@ -38,10 +19,4 @@ services:
         value: "60"
       - key: MAX_ATTEMPTS_PER_SESSION
         value: "240"
-      - key: KEEP_BROWSER_OPEN
-        value: "true"
-      - key: HEADLESS
-        value: "true"
-      - key: WEB_DRIVER
-        value: "chrome"
     healthCheckPath: /health
