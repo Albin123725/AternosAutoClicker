@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class Aternos24_7Keeper:
     """
     Keeps Aternos server running 24/7 by clicking +1 button at 0:59
-    Uses stealth techniques to avoid bot detection
+    Optimized for Render with Chrome compatibility fixes
     """
     
     def __init__(self, username=None, password=None, server_url=None):
@@ -49,8 +49,8 @@ class Aternos24_7Keeper:
         self.session_start = datetime.now()
         self.total_clicks = 0
         self.consecutive_fails = 0
-        self.max_fails = int(os.getenv('MAX_FAILURES', '20'))
-        self.stealth_mode = os.getenv('STEALTH_MODE', 'true').lower() == 'true'
+        self.max_fails = int(os.getenv('MAX_FAILURES', '10'))
+        self.stealth_mode = os.getenv('STEALTH_MODE', 'false').lower() == 'true'
         self.is_running = False
         self.last_refresh = 0
         self.last_click = None
@@ -65,157 +65,157 @@ class Aternos24_7Keeper:
         logger.info("=" * 60)
     
     def setup_driver(self):
-        """Setup Chrome driver with stealth features"""
+        """Setup Chrome driver optimized for Render with multiple fallbacks"""
         try:
-            logger.info("🚀 Setting up Chrome driver...")
+            logger.info("🚀 Setting up Chrome driver for Render...")
             
             options = ChromeOptions()
             
             # Essential arguments for Render
-            options.add_argument('--headless=new')
+            options.add_argument('--headless')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
             options.add_argument('--window-size=1920,1080')
+            options.add_argument('--disable-extensions')
             
+            # For Render/Chromium compatibility
+            options.binary_location = '/usr/bin/chromium-browser'
+            
+            # Anti-detection if stealth mode
             if self.stealth_mode:
-                # Stealth mode: Anti-detection features
                 options.add_argument('--disable-blink-features=AutomationControlled')
-                options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+                options.add_experimental_option("excludeSwitches", ["enable-automation"])
                 options.add_experimental_option('useAutomationExtension', False)
                 
-                # Random user agent
+                # User agent
                 user_agents = [
+                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.159 Safari/537.36',
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76',
                 ]
                 options.add_argument(f'user-agent={random.choice(user_agents)}')
+            else:
+                # Simple user agent for non-stealth
+                options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
-            # Install ChromeDriver
-            logger.info("📦 Installing ChromeDriver...")
-            service = Service(ChromeDriverManager().install())
+            logger.info("📦 Attempting to setup ChromeDriver...")
             
-            # Create driver
-            self.driver = webdriver.Chrome(service=service, options=options)
+            try:
+                # Method 1: Try webdriver-manager first
+                from selenium.webdriver.chrome.service import Service
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=options)
+                logger.info("✅ Driver setup with webdriver-manager")
+                
+            except Exception as e1:
+                logger.warning(f"⚠️ webdriver-manager failed: {e1}")
+                
+                try:
+                    # Method 2: Try direct Chrome with local driver
+                    self.driver = webdriver.Chrome(options=options)
+                    logger.info("✅ Driver setup with direct Chrome")
+                    
+                except Exception as e2:
+                    logger.warning(f"⚠️ Direct Chrome failed: {e2}")
+                    
+                    try:
+                        # Method 3: Try Chromium explicitly
+                        options.binary_location = '/usr/bin/chromium-browser'
+                        self.driver = webdriver.Chrome(options=options)
+                        logger.info("✅ Driver setup with Chromium")
+                        
+                    except Exception as e3:
+                        logger.error(f"❌ All driver setup methods failed: {e3}")
+                        return False
             
-            # Execute stealth scripts if enabled
-            if self.stealth_mode:
-                stealth_js = """
-                // Remove webdriver property
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                
-                // Override plugins
-                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                
-                // Override languages
-                Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-                
-                // Mock Chrome runtime
-                window.chrome = {runtime: {}};
-                
-                // Mock permissions
-                const originalQuery = window.navigator.permissions.query;
-                window.navigator.permissions.query = (parameters) => (
-                    parameters.name === 'notifications' ?
-                        Promise.resolve({state: Notification.permission}) :
-                        originalQuery(parameters)
-                );
-                """
-                self.driver.execute_script(stealth_js)
+            # Basic anti-detection
+            try:
+                self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                logger.info("✅ Anti-detection script executed")
+            except:
+                logger.warning("⚠️ Could not execute anti-detection script")
             
-            logger.info("✅ Chrome driver setup complete")
+            logger.info("✅ Chrome driver initialized successfully")
             return True
             
         except Exception as e:
             logger.error(f"❌ Failed to setup driver: {e}")
-            return False
+            
+            # Final fallback: Try with minimal options
+            try:
+                logger.info("🔄 Trying minimal driver setup...")
+                options = ChromeOptions()
+                options.add_argument('--headless')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                
+                self.driver = webdriver.Chrome(options=options)
+                logger.info("✅ Minimal driver setup successful")
+                return True
+            except Exception as e2:
+                logger.error(f"❌ Minimal setup also failed: {e2}")
+                return False
     
     def human_delay(self, min_seconds=1, max_seconds=3):
         """Random delay to mimic human behavior"""
+        if not self.stealth_mode:
+            time.sleep(min_seconds)
+            return min_seconds
+        
         delay = random.uniform(min_seconds, max_seconds)
         time.sleep(delay)
         return delay
     
     def random_mouse_movement(self):
-        """Simulate random mouse movements"""
+        """Simulate random mouse movements (stealth only)"""
         try:
             if not self.stealth_mode:
                 return False
                 
             actions = ActionChains(self.driver)
-            
-            # 1-3 random movements
-            for _ in range(random.randint(1, 3)):
-                x_offset = random.randint(-50, 50)
-                y_offset = random.randint(-50, 50)
-                actions.move_by_offset(x_offset, y_offset)
-                actions.pause(random.uniform(0.1, 0.3))
-            
+            actions.move_by_offset(random.randint(-20, 20), random.randint(-20, 20))
             actions.perform()
+            time.sleep(random.uniform(0.1, 0.3))
             return True
         except:
             return False
     
     def random_scroll(self):
-        """Random scroll to mimic human"""
+        """Random scroll (stealth only)"""
         try:
-            if not self.stealth_mode or random.random() > 0.5:
+            if not self.stealth_mode or random.random() > 0.3:
                 return False
                 
             scroll_amount = random.randint(100, 300)
             self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
-            time.sleep(random.uniform(0.3, 1.0))
-            
-            # Sometimes scroll back
-            if random.random() > 0.7:
-                self.driver.execute_script(f"window.scrollBy(0, -{scroll_amount//2});")
-                time.sleep(random.uniform(0.2, 0.8))
-            
+            time.sleep(random.uniform(0.2, 0.5))
             return True
         except:
             return False
     
     def login(self):
-        """Login to Aternos with human-like behavior"""
+        """Login to Aternos"""
         try:
             logger.info(f"🔐 Logging in as {self.username}...")
             
             # Go to Aternos
             self.driver.get("https://aternos.org/")
-            self.human_delay(2, 4)
-            
-            # Random activity if stealth mode
-            if self.stealth_mode:
-                self.random_mouse_movement()
+            self.human_delay(2, 3)
             
             # Find login button
             login_selectors = [
                 "//button[contains(., 'Log in')]",
                 "//a[contains(@href, 'login')]",
-                "//span[contains(., 'Log in')]/.."
+                "//button[contains(@class, 'login')]"
             ]
             
             login_clicked = False
             for selector in login_selectors:
                 try:
-                    wait_time = random.randint(5, 8) if self.stealth_mode else 10
-                    login_btn = WebDriverWait(self.driver, wait_time).until(
+                    login_btn = WebDriverWait(self.driver, 10).until(
                         EC.element_to_be_clickable((By.XPATH, selector))
                     )
-                    
-                    if self.stealth_mode:
-                        # Human-like click with hover
-                        actions = ActionChains(self.driver)
-                        actions.move_to_element(login_btn)
-                        actions.pause(random.uniform(0.2, 0.8))
-                        actions.click()
-                        actions.perform()
-                    else:
-                        # Direct click
-                        login_btn.click()
-                    
+                    login_btn.click()
                     login_clicked = True
                     logger.info("✅ Login button clicked")
                     self.human_delay(1, 2)
@@ -225,6 +225,7 @@ class Aternos24_7Keeper:
             
             # Fallback to direct login page
             if not login_clicked:
+                logger.info("🔄 Trying direct login page...")
                 self.driver.get("https://aternos.org/account/")
                 self.human_delay(2, 3)
             
@@ -232,27 +233,14 @@ class Aternos24_7Keeper:
             username_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, "user"))
             )
-            
-            # Type like human if stealth mode
-            if self.stealth_mode:
-                for char in self.username:
-                    username_field.send_keys(char)
-                    time.sleep(random.uniform(0.05, 0.15))
-            else:
-                username_field.send_keys(self.username)
-            
+            username_field.send_keys(self.username)
+            logger.info("✅ Username entered")
             self.human_delay(0.5, 1)
             
             # Enter password
             pass_field = self.driver.find_element(By.ID, "password")
-            
-            if self.stealth_mode:
-                for char in self.password:
-                    pass_field.send_keys(char)
-                    time.sleep(random.uniform(0.05, 0.15))
-            else:
-                pass_field.send_keys(self.password)
-            
+            pass_field.send_keys(self.password)
+            logger.info("✅ Password entered")
             self.human_delay(0.5, 1)
             
             # Submit login
@@ -266,48 +254,25 @@ class Aternos24_7Keeper:
                 try:
                     submit_btn = self.driver.find_element(by, selector)
                     if submit_btn:
-                        if self.stealth_mode:
-                            # Random activity before submit
-                            if random.random() > 0.5:
-                                self.random_scroll()
-                            
-                            # Click with offset
-                            actions = ActionChains(self.driver)
-                            actions.move_to_element_with_offset(
-                                submit_btn, 
-                                random.randint(-5, 5), 
-                                random.randint(-5, 5)
-                            )
-                            actions.pause(random.uniform(0.1, 0.5))
-                            actions.click()
-                            actions.perform()
-                        else:
-                            submit_btn.click()
-                        
+                        submit_btn.click()
                         logger.info("✅ Login submitted")
                         break
                 except:
                     continue
             
             # Wait for login
-            self.human_delay(3, 5)
+            self.human_delay(3, 4)
             
             # Check login success
             current_url = self.driver.current_url.lower()
             if "account" in current_url or "server" in current_url or "panel" in current_url:
                 logger.info("🎉 Login successful!")
-                
-                # Random activity after login
-                if self.stealth_mode:
-                    self.random_scroll()
-                    self.random_mouse_movement()
-                
                 return True
             else:
-                # Check for CAPTCHA or errors
+                # Check for errors
                 page_text = self.driver.page_source.lower()
                 if "captcha" in page_text:
-                    logger.error("🚨 CAPTCHA detected! Manual intervention needed.")
+                    logger.error("🚨 CAPTCHA detected!")
                     return False
                 elif "error" in page_text or "incorrect" in page_text:
                     logger.error("❌ Login error detected")
@@ -327,11 +292,11 @@ class Aternos24_7Keeper:
             
             # Try direct server URL
             self.driver.get("https://aternos.org/server/")
-            self.human_delay(3, 5)
+            self.human_delay(3, 4)
             
             # Check if we're on server page
             page_text = self.driver.page_source.lower()
-            server_keywords = ["start", "stop", "restart", "online", "offline", "server", "players"]
+            server_keywords = ["start", "stop", "restart", "online", "offline", "server", "players", "ram"]
             
             if any(keyword in page_text for keyword in server_keywords):
                 logger.info("✅ On server control panel")
@@ -342,9 +307,9 @@ class Aternos24_7Keeper:
             self.driver.get("https://aternos.org/servers/")
             self.human_delay(2, 3)
             
-            # Look for server by name (remove port)
+            # Look for server by name
             server_name = self.server_url.split(':')[0]
-            variations = [server_name, "gameplannet", "gameplan"]
+            variations = [server_name, "gameplannet"]
             
             for variation in variations:
                 try:
@@ -354,15 +319,7 @@ class Aternos24_7Keeper:
                     
                     if server_elements:
                         logger.info(f"✅ Found server: {variation}")
-                        if self.stealth_mode:
-                            actions = ActionChains(self.driver)
-                            actions.move_to_element(server_elements[0])
-                            actions.pause(0.2)
-                            actions.click()
-                            actions.perform()
-                        else:
-                            server_elements[0].click()
-                        
+                        server_elements[0].click()
                         self.human_delay(2, 3)
                         return True
                 except:
@@ -371,10 +328,10 @@ class Aternos24_7Keeper:
             # Fallback: click first server card
             try:
                 server_cards = self.driver.find_elements(
-                    By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'server')]//a"
+                    By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'server')]//a | //div[contains(@class, 'card') or contains(@class, 'server')]//button"
                 )
                 if server_cards:
-                    logger.info(f"🔗 Clicking first server card")
+                    logger.info(f"🔗 Clicking first server element")
                     server_cards[0].click()
                     self.human_delay(2, 3)
                     return True
@@ -394,32 +351,31 @@ class Aternos24_7Keeper:
             # Get page content
             page_text = self.driver.page_source
             
-            # Look for timer patterns (0:59, 1:00, etc.)
+            # Look for timer patterns
             import re
             
-            # Timer patterns (MM:SS or M:SS)
+            # Common timer patterns
             timer_patterns = [
                 r'0:5[0-9]',  # 0:50-0:59
                 r'0:[0-5][0-9]',  # 0:00-0:59
                 r'1:0[0-9]',  # 1:00-1:09
-                r'\d:\d{2}',  # Any X:XX format
+                r'\d:\d{2}',  # Any X:XX
             ]
             
             for pattern in timer_patterns:
                 matches = re.findall(pattern, page_text)
                 if matches:
-                    # Get unique matches
-                    unique_timers = list(set(matches))
-                    for timer in unique_timers:
-                        # Validate it's a timer (not random numbers)
-                        if len(timer) <= 5 and ':' in timer:
-                            logger.info(f"⏰ Found timer: {timer}")
-                            return timer
+                    # Return first match
+                    timer = matches[0]
+                    if len(timer) <= 5:  # Validate format
+                        logger.info(f"⏰ Found timer: {timer}")
+                        return timer
             
-            # Also check for text indicating countdown
-            countdown_words = ['minute', 'second', 'countdown', 'shutdown', 'auto-stop', 'timer']
+            # Also look for text containing countdown
+            countdown_words = ['minute', 'second', 'countdown', 'shutdown', 'timer']
+            page_lower = page_text.lower()
             for word in countdown_words:
-                if word in page_text.lower():
+                if word in page_lower:
                     logger.info(f"⏰ Countdown indicator: {word}")
                     return f"countdown_{word}"
             
@@ -430,50 +386,29 @@ class Aternos24_7Keeper:
             return None
     
     def find_plus_one_button(self):
-        """Find the +1 button that appears at 0:59"""
+        """Find the +1 button"""
         try:
-            # Check if we should refresh
+            # Refresh page occasionally
             current_time = time.time()
-            should_refresh = False
-            
-            if self.stealth_mode:
-                # Refresh randomly every 30-90 seconds
-                if current_time - self.last_refresh > random.randint(30, 90):
-                    should_refresh = True
-            else:
-                # Refresh every 30 seconds
-                if current_time - self.last_refresh > 30:
-                    should_refresh = True
-            
-            if should_refresh:
+            if current_time - self.last_refresh > 30:
                 logger.info("🔄 Refreshing page...")
                 self.driver.refresh()
                 self.last_refresh = current_time
-                self.human_delay(2, 4)
-                
-                # Random activity after refresh
-                if self.stealth_mode:
-                    self.random_mouse_movement()
+                self.human_delay(2, 3)
             
             # Look for +1 button
             boost_selectors = [
                 "//button[text()='+1']",  # Exact match
                 "//button[contains(text(), '+1')]",
+                "//button[contains(text(), 'RAM boost')]",
+                "//a[contains(text(), 'RAM boost')]",
                 "//button[.//*[text()='+1']]",
-                "//button[contains(text(), 'Get your free RAM boost')]",
-                "//a[contains(text(), 'Get your free RAM boost')]",
-                "//button[@aria-label*='+1' or @aria-label*='boost']",
-                "//button[contains(@class, 'boost')]"
+                "//button[@aria-label*='boost' or @aria-label*='+1']",
             ]
-            
-            # Shuffle selectors for stealth
-            if self.stealth_mode:
-                random.shuffle(boost_selectors)
             
             for selector in boost_selectors:
                 try:
-                    wait_time = random.uniform(2, 4) if self.stealth_mode else 3
-                    boost_btn = WebDriverWait(self.driver, wait_time).until(
+                    boost_btn = WebDriverWait(self.driver, 3).until(
                         EC.element_to_be_clickable((By.XPATH, selector))
                     )
                     
@@ -490,62 +425,26 @@ class Aternos24_7Keeper:
             return None
     
     def click_plus_one_button(self, button):
-        """Click the +1 button with human-like behavior"""
+        """Click the +1 button"""
         try:
             logger.info("⚡ Clicking +1 button...")
             
             # Scroll to button
-            self.driver.execute_script(
-                "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", 
-                button
-            )
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", button)
+            self.human_delay(0.2, 0.5)
             
-            self.human_delay(0.3, 0.8)
-            
-            if self.stealth_mode:
-                # Human-like click with random offset
-                actions = ActionChains(self.driver)
-                actions.move_to_element_with_offset(
-                    button,
-                    random.randint(-8, 8),
-                    random.randint(-8, 8)
-                )
-                actions.pause(random.uniform(0.1, 0.4))
-                
-                # Occasionally double-click like human mistake
-                if random.random() > 0.9:
-                    actions.double_click()
-                    logger.info("👤 Human-like double click")
-                else:
-                    actions.click()
-                
-                actions.perform()
-            else:
-                # Direct JavaScript click
-                self.driver.execute_script("arguments[0].click();", button)
+            # Click using JavaScript (most reliable)
+            self.driver.execute_script("arguments[0].click();", button)
             
             # Wait for action
             self.human_delay(1, 2)
-            
-            # Random activity after click
-            if self.stealth_mode and random.random() > 0.5:
-                self.random_mouse_movement()
-                self.random_scroll()
             
             # Update stats
             self.total_clicks += 1
             self.last_click = datetime.now()
             self.consecutive_fails = 0
             
-            # Check for success
-            page_text = self.driver.page_source.lower()
-            success_words = ['success', 'boost', 'activated', 'applied', 'increased']
-            
-            if any(word in page_text for word in success_words):
-                logger.info("✅ +1 button clicked successfully!")
-            else:
-                logger.info("✅ Button clicked")
-            
+            logger.info(f"✅ +1 button clicked! Total clicks: {self.total_clicks}")
             return True
             
         except Exception as e:
@@ -556,31 +455,20 @@ class Aternos24_7Keeper:
     def check_server_status(self):
         """Check if server is online/offline"""
         try:
-            status_selectors = [
-                "//*[contains(text(), 'Online')]",
-                "//*[contains(text(), 'Offline')]",
-                "//*[contains(text(), 'Starting')]",
-                "//*[contains(text(), 'Stopped')]",
-                "//*[contains(@class, 'status-online')]",
-                "//*[contains(@class, 'status-offline')]"
-            ]
+            # Look for status indicators
+            page_text = self.driver.page_source
             
-            for selector in status_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for elem in elements:
-                        text = elem.text.strip()
-                        if text and len(text) < 50:  # Avoid large text blocks
-                            if 'Online' in text or 'Starting' in text:
-                                logger.info(f"📊 Server status: {text}")
-                                return 'online'
-                            elif 'Offline' in text or 'Stopped' in text:
-                                logger.info(f"📊 Server status: {text}")
-                                return 'offline'
-                except:
-                    continue
+            if 'Online' in page_text or 'ONLINE' in page_text:
+                logger.info("📊 Server status: Online")
+                return 'online'
+            elif 'Offline' in page_text or 'OFFLINE' in page_text or 'Stopped' in page_text:
+                logger.info("📊 Server status: Offline")
+                return 'offline'
+            elif 'Starting' in page_text:
+                logger.info("📊 Server status: Starting")
+                return 'starting'
             
-            # Check for start/stop buttons
+            # Check for buttons
             try:
                 start_buttons = self.driver.find_elements(
                     By.XPATH, "//button[contains(text(), 'Start') and not(contains(text(), 'Restart'))]"
@@ -616,7 +504,6 @@ class Aternos24_7Keeper:
                     "//button[contains(text(), 'Start') and not(contains(text(), 'Restart'))]",
                     "//button[@id='start']",
                     "//button[contains(@class, 'start')]",
-                    "//button[contains(@class, 'btn-start')]"
                 ]
                 
                 for selector in start_selectors:
@@ -625,16 +512,8 @@ class Aternos24_7Keeper:
                             EC.element_to_be_clickable((By.XPATH, selector))
                         )
                         if start_btn:
-                            if self.stealth_mode:
-                                actions = ActionChains(self.driver)
-                                actions.move_to_element(start_btn)
-                                actions.pause(0.2)
-                                actions.click()
-                                actions.perform()
-                            else:
-                                start_btn.click()
-                            
-                            logger.info("✅ Start button clicked, waiting...")
+                            start_btn.click()
+                            logger.info("✅ Start button clicked, waiting 60 seconds...")
                             
                             # Wait for server to start
                             for i in range(6):
@@ -656,9 +535,8 @@ class Aternos24_7Keeper:
             return False
     
     def monitor_and_keep_alive(self):
-        """Main monitoring loop to keep server alive"""
+        """Main monitoring loop"""
         logger.info("🚀 Starting 24/7 server keeper monitoring...")
-        logger.info(f"🛡️ Stealth mode: {self.stealth_mode}")
         
         try:
             # Setup driver
@@ -677,18 +555,13 @@ class Aternos24_7Keeper:
             
             self.is_running = True
             check_count = 0
-            last_status_log = 0
             
             while self.is_running and self.consecutive_fails < self.max_fails:
                 check_count += 1
-                current_time = time.time()
-                elapsed_minutes = (current_time - self.session_start.timestamp()) / 60
+                elapsed_minutes = (datetime.now() - self.session_start).total_seconds() / 60
                 
-                # Log status every 10-20 checks or every 5 minutes
-                if (check_count % random.randint(10, 20) == 0 or 
-                    current_time - last_status_log > 300):
-                    
-                    last_status_log = current_time
+                # Log status periodically
+                if check_count % 10 == 0:
                     logger.info(f"\n{'='*50}")
                     logger.info(f"🔄 Check #{check_count}")
                     logger.info(f"⏰ Runtime: {elapsed_minutes:.1f} minutes")
@@ -707,18 +580,19 @@ class Aternos24_7Keeper:
                 if status == 'offline':
                     logger.info("🔌 Server offline, trying to start...")
                     if self.start_server_if_needed():
-                        # Wait after starting
-                        self.human_delay(10, 20)
+                        time.sleep(30)
                         continue
                     else:
                         logger.error("❌ Failed to start server")
                         self.consecutive_fails += 1
+                        time.sleep(30)
+                        continue
                 
                 # Find shutdown timer
                 timer = self.find_shutdown_timer()
                 
                 if timer:
-                    # Check if timer is at critical point (0:59, 0:58, etc.)
+                    # Check if timer is critical
                     if any(pattern in timer for pattern in ['0:59', '0:58', '0:57', '0:56']):
                         logger.info(f"🎯 CRITICAL TIMER: {timer}! Looking for +1 button...")
                         
@@ -728,40 +602,22 @@ class Aternos24_7Keeper:
                         if plus_one_btn:
                             # CLICK IT!
                             if self.click_plus_one_button(plus_one_btn):
-                                logger.info(f"✅ +1 clicked! Timer should reset. Total clicks: {self.total_clicks}")
+                                logger.info(f"✅ +1 clicked! Timer should reset.")
                                 
                                 # Wait for timer to reset
-                                self.human_delay(5, 10)
-                                
-                                # Check if timer reset
-                                new_timer = self.find_shutdown_timer()
-                                if new_timer and '1:00' in new_timer:
-                                    logger.info("🎉 Timer successfully reset to 1:00!")
-                                elif new_timer:
-                                    logger.info(f"🔄 Timer now at: {new_timer}")
-                                else:
-                                    logger.info("🔍 Timer no longer visible (should be reset)")
+                                time.sleep(5)
                             else:
                                 logger.error("❌ Failed to click +1 button")
                                 self.consecutive_fails += 1
                         else:
                             logger.info(f"⏳ Timer at {timer} but no +1 button yet")
-                            
-                            # Wait shorter if timer is critical
-                            wait_time = random.randint(5, 15) if self.stealth_mode else 10
-                            logger.info(f"⏳ Waiting {wait_time} seconds...")
-                            time.sleep(wait_time)
+                            time.sleep(10)
+                    elif '1:00' in timer or '0:45' in timer:
+                        logger.info(f"⏰ Timer at {timer}, waiting...")
+                        time.sleep(20)
                     else:
-                        # Timer not critical, wait longer
-                        if '1:00' in timer or '0:45' in timer or '0:30' in timer:
-                            # Medium priority timers
-                            wait_time = random.randint(15, 30) if self.stealth_mode else 20
-                        else:
-                            # Low priority timers
-                            wait_time = random.randint(30, 60) if self.stealth_mode else 40
-                        
-                        logger.info(f"⏳ Timer at {timer}, waiting {wait_time} seconds...")
-                        time.sleep(wait_time)
+                        logger.info(f"⏰ Timer at {timer}, waiting longer...")
+                        time.sleep(30)
                 else:
                     # No timer found, check for +1 button anyway
                     logger.info("🔍 No timer found, checking for +1 button...")
@@ -771,28 +627,15 @@ class Aternos24_7Keeper:
                         logger.info("🎯 Found +1 button without timer!")
                         self.click_plus_one_button(plus_one_btn)
                     else:
-                        # Wait random time
-                        wait_time = random.randint(30, 90) if self.stealth_mode else 60
-                        logger.info(f"🔍 Nothing found, waiting {wait_time} seconds...")
-                        
-                        # Do occasional activity during long waits
-                        for i in range(3):
-                            time.sleep(wait_time / 3)
-                            if self.stealth_mode and random.random() > 0.7:
-                                self.random_scroll()
+                        logger.info("🔍 Nothing found, waiting 45 seconds...")
+                        time.sleep(45)
                 
                 # Recovery check
                 if self.consecutive_fails >= 3:
                     logger.warning(f"🔄 {self.consecutive_fails} consecutive fails, attempting recovery...")
-                    
-                    # Refresh and check status
                     self.driver.refresh()
                     self.last_refresh = time.time()
-                    self.human_delay(3, 5)
-                    
-                    # Reset consecutive fails after recovery attempt
-                    if self.consecutive_fails < 5:
-                        self.consecutive_fails = 0
+                    time.sleep(5)
             
             # Loop ended
             if self.consecutive_fails >= self.max_fails:
@@ -825,12 +668,7 @@ class Aternos24_7Keeper:
         return self.monitor_and_keep_alive()
 
 
-# Quick test function
-def quick_test():
-    """Quick test of the keeper"""
-    keeper = Aternos24_7Keeper()
-    return keeper.run()
-
-
+# Quick test
 if __name__ == "__main__":
-    quick_test()
+    keeper = Aternos24_7Keeper()
+    keeper.run()
