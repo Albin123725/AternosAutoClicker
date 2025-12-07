@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: aternos-bypass-keeper
+    name: aternos-ultimate-keeper
     env: python
     plan: free
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: python server.py
+    startCommand: python main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
