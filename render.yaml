@@ -1,16 +1,24 @@
 services:
   - type: web
-    name: aternos-booster
+    name: aternos-24-7-keeper
     env: python
     plan: free
+    region: oregon
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: python run.py
+    autoDeploy: true
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
       - key: ATERNOS_USERNAME
         value: "_CRAFTEEE_"
       - key: ATERNOS_PASSWORD
         value: "Albin4242"
       - key: ATERNOS_SERVER
-        value: "gameplannet.aternos.me"
-      - key: BOOST_INTERVAL
-        value: "60"
+        value: "gameplannet.aternos.me:43658"
+      - key: MAX_FAILURES
+        value: "20"
+      - key: STEALTH_MODE
+        value: "true"
+    healthCheckPath: /health
